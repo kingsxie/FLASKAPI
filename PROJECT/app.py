@@ -18,7 +18,9 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
 app.config['UPLOAD_EXTENSIONS'] = ['.jpg', '.png', '.gif']
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+db = SQLAlchemy(app)
 
+#error handing
 @app.errorhandler(400)
 def bad_request(e):
     return jsonify(error=str(e), code=400, message="Bad Request"), 400
@@ -36,18 +38,17 @@ def internal_server_error(e):
     return jsonify(error=str(e), code=500, message="Internal Server Error"), 500
 
 
-db = SQLAlchemy(app)
-
+#creating users table
 class Users(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     public_id = db.Column(db.Integer)
     name = db.Column(db.String(50))
     password = db.Column(db.String(50))
     admin = db.Column(db.Boolean)
-
 with app.app_context():
     db.create_all()
 
+#creating books table
 class Books(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -58,6 +59,7 @@ class Books(db.Model):
 with app.app_context():
     db.create_all()
 
+#define token
 def token_required(f):
     @wraps(f)
     def decorator(*args, **kwargs):
@@ -79,7 +81,7 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
     return decorator
 
-
+#register route
 @app.route('/register', methods=['POST'])
 def signup_user():  
     data = request.get_json()  
@@ -92,6 +94,7 @@ def signup_user():
 
     return jsonify({'message': 'registeration successfully'})
 
+#login route 
 @app.route('/login', methods=['POST'])  
 def login_user(): 
     auth = request.authorization   
@@ -108,6 +111,7 @@ def login_user():
 
     return make_response('could not verify',  401, {'Authentication': '"login required"'})
 
+#users route for getting user information
 @app.route('/users', methods=['GET'])
 def get_all_users():  
    
@@ -124,6 +128,7 @@ def get_all_users():
 
     return jsonify({'users': result})
 
+#book route to import a book and require token
 @app.route('/book', methods=['POST'])
 @token_required
 def create_book(current_user):
@@ -136,7 +141,7 @@ def create_book(current_user):
 
     return jsonify({'message' : 'new books created'})
 
-
+#books route to get current user stored book
 @app.route('/books', methods=['GET'])
 @token_required
 def get_books(current_user):
@@ -155,6 +160,7 @@ def get_books(current_user):
 
     return jsonify({'list_of_books' : output})
 
+#delete book
 @app.route('/books/<book_id>', methods=['DELETE'])
 @token_required
 def delete_book(current_user, book_id):  
@@ -167,8 +173,8 @@ def delete_book(current_user, book_id):
 
     return jsonify({'message': 'Book deleted'})
 
+#upload file
 ALLOWED_EXTENSIONS = set(['txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'])
-
 def allowed_file(filenmae):
     return '.'  in filenmae and filenmae.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -204,11 +210,9 @@ def upload_files():
         resp.status_code = 500
         return resp
     
-
+#public
 @app.route('/')
-def home():
- 
-    
+def home(): 
     return jsonify({
         'name': 'The C++ programming Language, 4th Edition',
         'Author': 'Bjarne Stroustrup',
